@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { create as createAxios, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
 export const AUTH_TOKEN_KEY = 'bizzhuss_auth_token';
@@ -36,7 +36,7 @@ export async function removeAuthToken(): Promise<void> {
 /**
  * Pre-configured Axios instance for Laravel Sanctum REST API
  */
-export const apiClient = axios.create({
+export const apiClient = createAxios({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
@@ -68,5 +68,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-export default apiClient;

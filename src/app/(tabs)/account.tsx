@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import {
-  User as UserIcon,
   Package,
   MapPin,
   CreditCard,
@@ -44,7 +43,7 @@ export default function AccountScreen() {
           password_confirmation: password,
         });
       }
-    } catch (err: any) {
+    } catch {
       // Error handled in store
     } finally {
       setIsSubmitting(false);

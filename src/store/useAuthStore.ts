@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User, AuthResponse, ApiResponse } from '@/types';
-import apiClient, { getAuthToken, setAuthToken, removeAuthToken } from '@/api/client';
+import { apiClient, getAuthToken, setAuthToken, removeAuthToken } from '@/api/client';
 
 export interface LoginCredentials {
   email: string;
