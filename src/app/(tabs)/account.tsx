@@ -1,298 +1,372 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   Package,
   MapPin,
   CreditCard,
   Store,
-  ShieldCheck,
+  HelpCircle,
   LogOut,
   ChevronRight,
+  ShieldCheck,
+  Truck,
   LogIn,
-  UserPlus,
+  CheckCircle2,
+  Clock,
+  Send,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/store/useAuthStore';
-import { setAuthToken } from '@/api/client';
+import { OrderStatus } from '@/types';
+
+function getOrderStatusBadge(status: OrderStatus) {
+  switch (status) {
+    case 'delivered':
+      return {
+        label: 'Delivered',
+        bg: 'bg-teal-50',
+        text: 'text-teal-700',
+        border: 'border-teal-200',
+        icon: CheckCircle2,
+      };
+    case 'shipped':
+      return {
+        label: 'Dispatched / In Transit',
+        bg: 'bg-indigo-50',
+        text: 'text-indigo-700',
+        border: 'border-indigo-200',
+        icon: Truck,
+      };
+    case 'processing':
+      return {
+        label: 'Processing in Warehouse',
+        bg: 'bg-blue-50',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        icon: Send,
+      };
+    case 'pending':
+      return {
+        label: 'Order Placed (Pending)',
+        bg: 'bg-amber-50',
+        text: 'text-amber-700',
+        border: 'border-amber-200',
+        icon: Clock,
+      };
+    default:
+      return {
+        label: status,
+        bg: 'bg-slate-50',
+        text: 'text-slate-700',
+        border: 'border-slate-200',
+        icon: AlertCircle,
+      };
+  }
+}
 
 export default function AccountScreen() {
-  const { user, isAuthenticated, isLoading, login, register, logout, setUser, error, clearError } = useAuthStore();
+  const router = useRouter();
+  const { user, isAuthenticated, orders, logout } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
 
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleAuthSubmit = async () => {
-    if (!email || !password) {
-      Alert.alert('Required Fields', 'Please enter both email and password.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    clearError();
-
-    try {
-      if (authMode === 'login') {
-        await login({ email, password });
-      } else {
-        await register({
-          name: name || 'Bizzhuss Shopper',
-          email,
-          password,
-          password_confirmation: password,
-        });
-      }
-    } catch {
-      // Error handled in store
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Instant demo login for local development / testing without requiring live Sanctum server
-  const handleQuickDemoLogin = async (role: 'customer' | 'vendor' = 'customer') => {
-    setIsSubmitting(true);
-    try {
-      const demoToken = '1|sanctum_mock_bearer_token_bizzhuss_' + Date.now();
-      await setAuthToken(demoToken);
-      setUser({
-        id: role === 'vendor' ? 101 : 1,
-        name: role === 'vendor' ? 'Haseeb (Vendor)' : 'Haseeb Shopper',
-        email: role === 'vendor' ? 'vendor@bizzhuss.com' : 'shopper@bizzhuss.com',
-        phone: '+1 555-0199',
-        role,
-        avatar: null,
-        created_at: new Date().toISOString(),
-      });
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoading) {
+  // Guest State View
+  if (!isAuthenticated || !user) {
     return (
-      <View className="flex-1 bg-slate-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#0D9488" />
-        <Text className="text-slate-500 text-xs mt-3">Connecting to Bizzhuss...</Text>
-      </View>
-    );
-  }
+      <ScrollView className="flex-1 bg-slate-50 px-5 pt-6" showsVerticalScrollIndicator={false}>
+        {/* Guest Welcome Banner */}
+        <View className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm items-center text-center mb-5">
+          <View className="w-16 h-16 rounded-full bg-teal-50 items-center justify-center mb-3 border border-teal-100">
+            <LogIn size={28} color="#0D9488" />
+          </View>
 
-  // Authenticated State View
-  if (isAuthenticated && user) {
-    return (
-      <ScrollView className="flex-1 bg-slate-50 px-4 pt-4" showsVerticalScrollIndicator={false}>
-        {/* User Profile Card */}
-        <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-4">
+          <Text className="text-slate-900 font-black text-xl text-center">
+            Welcome to Bizzhuss
+          </Text>
+          <Text className="text-slate-500 text-xs text-center mt-1 mb-5 max-w-[260px] leading-relaxed">
+            Sign in to track your Pakistani courier shipments, view previous orders, and enjoy faster checkout.
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => router.push('/login')}
+            activeOpacity={0.8}
+            className="bg-teal-600 w-full py-3.5 rounded-2xl items-center shadow-sm">
+            <Text className="text-white font-black text-xs uppercase tracking-wide">
+              Sign In or Create Account
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Benefits List */}
+        <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-12">
+          <Text className="text-slate-900 font-bold text-sm mb-3">Why Create an Account?</Text>
+
+          <View className="flex-row items-center mb-3">
+            <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center mr-3">
+              <Package size={16} color="#0D9488" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-slate-800 font-bold text-xs">Live Order & TCS Tracking</Text>
+              <Text className="text-slate-500 text-[11px]">Check courier status and delivery progress</Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center mb-3">
+            <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center mr-3">
+              <MapPin size={16} color="#0D9488" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-slate-800 font-bold text-xs">Saved Pakistani Addresses</Text>
+              <Text className="text-slate-500 text-[11px]">Quick 1-click checkout for your home or office</Text>
+            </View>
+          </View>
+
           <View className="flex-row items-center">
-            <View className="w-16 h-16 rounded-full bg-teal-600 items-center justify-center">
-              <Text className="text-white text-xl font-bold">
-                {user.name.charAt(0).toUpperCase()}
-              </Text>
+            <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center mr-3">
+              <ShieldCheck size={16} color="#0D9488" />
             </View>
-
-            <View className="ml-4 flex-1">
-              <View className="flex-row items-center">
-                <Text className="text-slate-900 font-bold text-base">{user.name}</Text>
-                <View className="bg-teal-50 px-2 py-0.5 rounded-full ml-2 border border-teal-200">
-                  <Text className="text-teal-700 text-[10px] font-bold uppercase">
-                    {user.role}
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-slate-500 text-xs mt-0.5">{user.email}</Text>
-              {user.phone && <Text className="text-slate-400 text-[11px] mt-0.5">{user.phone}</Text>}
+            <View className="flex-1">
+              <Text className="text-slate-800 font-bold text-xs">Verified Multi-Vendor Protection</Text>
+              <Text className="text-slate-500 text-[11px]">7-day returns on official brand orders</Text>
             </View>
           </View>
         </View>
-
-        {/* Multi-Vendor Options */}
-        {user.role === 'vendor' && (
-          <View className="bg-amber-50 rounded-2xl p-4 mb-4 border border-amber-200">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Store size={20} color="#D97706" />
-                <View className="ml-3">
-                  <Text className="text-amber-900 font-bold text-sm">Vendor Dashboard</Text>
-                  <Text className="text-amber-700 text-xs">Manage products, orders & earnings</Text>
-                </View>
-              </View>
-              <ChevronRight size={18} color="#D97706" />
-            </View>
-          </View>
-        )}
-
-        {/* Account Menu Navigation */}
-        <View className="bg-white rounded-2xl p-2 border border-slate-100 shadow-sm mb-4">
-          <TouchableOpacity className="flex-row items-center justify-between p-3 border-b border-slate-50">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-lg bg-teal-50 items-center justify-center">
-                <Package size={16} color="#0D9488" />
-              </View>
-              <Text className="text-slate-800 font-semibold text-xs ml-3">My Orders</Text>
-            </View>
-            <ChevronRight size={16} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity className="flex-row items-center justify-between p-3 border-b border-slate-50">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-lg bg-teal-50 items-center justify-center">
-                <MapPin size={16} color="#0D9488" />
-              </View>
-              <Text className="text-slate-800 font-semibold text-xs ml-3">Shipping Addresses</Text>
-            </View>
-            <ChevronRight size={16} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity className="flex-row items-center justify-between p-3 border-b border-slate-50">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-lg bg-teal-50 items-center justify-center">
-                <CreditCard size={16} color="#0D9488" />
-              </View>
-              <Text className="text-slate-800 font-semibold text-xs ml-3">Payment Methods</Text>
-            </View>
-            <ChevronRight size={16} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity className="flex-row items-center justify-between p-3">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-lg bg-teal-50 items-center justify-center">
-                <ShieldCheck size={16} color="#0D9488" />
-              </View>
-              <Text className="text-slate-800 font-semibold text-xs ml-3">Security & Sanctum Session</Text>
-            </View>
-            <ChevronRight size={16} color="#94A3B8" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          onPress={() => logout()}
-          activeOpacity={0.8}
-          className="bg-white border border-rose-200 rounded-2xl p-4 flex-row items-center justify-center shadow-sm mb-12">
-          <LogOut size={16} color="#E11D48" />
-          <Text className="text-rose-600 font-bold text-xs ml-2">Sign Out</Text>
-        </TouchableOpacity>
       </ScrollView>
     );
   }
 
-  // Guest / Unauthenticated State View
+  // Logged-in State View
   return (
-    <ScrollView className="flex-1 bg-slate-50 px-5 pt-4" showsVerticalScrollIndicator={false}>
-      {/* Auth Mode Switcher */}
-      <View className="flex-row bg-slate-200/80 p-1 rounded-xl mb-5">
+    <ScrollView className="flex-1 bg-slate-50 px-4 pt-4 pb-12" showsVerticalScrollIndicator={false}>
+      {/* User Profile Card */}
+      <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-4">
+        <View className="flex-row items-center">
+          <View className="w-16 h-16 rounded-full bg-teal-600 items-center justify-center shadow-xs">
+            <Text className="text-white text-2xl font-black">
+              {user.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+
+          <View className="ml-4 flex-1">
+            <View className="flex-row items-center">
+              <Text className="text-slate-900 font-black text-base">{user.name}</Text>
+              <View className="bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full ml-2">
+                <Text className="text-teal-700 text-[10px] font-black uppercase">
+                  {user.role}
+                </Text>
+              </View>
+            </View>
+            <Text className="text-slate-500 text-xs mt-0.5 font-medium">{user.email}</Text>
+            {user.phone && (
+              <Text className="text-slate-400 text-[11px] mt-0.5 font-medium">{user.phone}</Text>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Vendor Store Portal Banner (if vendor role) */}
+      {user.role === 'vendor' && (
+        <View className="bg-amber-50 rounded-2xl p-4 mb-4 border border-amber-200">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center flex-1 pr-2">
+              <Store size={22} color="#D97706" />
+              <View className="ml-3 flex-1">
+                <Text className="text-amber-900 font-black text-sm">Vendor Store Portal</Text>
+                <Text className="text-amber-700 text-xs">
+                  Manage inventory, Pakistani logistics & payout balance
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#D97706" />
+          </View>
+        </View>
+      )}
+
+      {/* Tabs Switcher: Orders vs Account Settings */}
+      <View className="flex-row bg-slate-200/80 p-1 rounded-2xl mb-4">
         <TouchableOpacity
-          onPress={() => { setAuthMode('login'); clearError(); }}
-          className={`flex-1 py-2.5 rounded-lg items-center ${authMode === 'login' ? 'bg-white shadow-sm' : ''}`}>
-          <Text className={`text-xs font-bold ${authMode === 'login' ? 'text-teal-700' : 'text-slate-600'}`}>
-            Sign In
+          onPress={() => setActiveTab('orders')}
+          className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center ${
+            activeTab === 'orders' ? 'bg-white shadow-sm' : ''
+          }`}>
+          <Package size={14} color={activeTab === 'orders' ? '#0D9488' : '#64748B'} />
+          <Text
+            className={`text-xs font-bold ml-1.5 ${
+              activeTab === 'orders' ? 'text-teal-700' : 'text-slate-600'
+            }`}>
+            My Orders ({orders.length})
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
-          onPress={() => { setAuthMode('register'); clearError(); }}
-          className={`flex-1 py-2.5 rounded-lg items-center ${authMode === 'register' ? 'bg-white shadow-sm' : ''}`}>
-          <Text className={`text-xs font-bold ${authMode === 'register' ? 'text-teal-700' : 'text-slate-600'}`}>
-            Create Account
+          onPress={() => setActiveTab('profile')}
+          className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center ${
+            activeTab === 'profile' ? 'bg-white shadow-sm' : ''
+          }`}>
+          <MapPin size={14} color={activeTab === 'profile' ? '#0D9488' : '#64748B'} />
+          <Text
+            className={`text-xs font-bold ml-1.5 ${
+              activeTab === 'profile' ? 'text-teal-700' : 'text-slate-600'
+            }`}>
+            Addresses & Settings
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Form Card */}
-      <View className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mb-4">
-        <Text className="text-slate-900 font-bold text-lg mb-1">
-          {authMode === 'login' ? 'Welcome Back' : 'Join Bizzhuss'}
-        </Text>
-        <Text className="text-slate-500 text-xs mb-5">
-          {authMode === 'login'
-            ? 'Sign in to access your orders, cart, and vendor tools.'
-            : 'Register to start shopping or selling with Bizzhuss.'}
-        </Text>
+      {/* Tab 1: Orders List */}
+      {activeTab === 'orders' && (
+        <View className="mb-6">
+          {orders.map((order) => {
+            const badge = getOrderStatusBadge(order.status);
+            const BadgeIcon = badge.icon;
+            const formattedDate = new Date(order.created_at).toLocaleDateString('en-GB', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            });
 
-        {error && (
-          <View className="bg-rose-50 border border-rose-200 p-3 rounded-xl mb-4">
-            <Text className="text-rose-700 text-xs font-medium">{error}</Text>
-          </View>
-        )}
+            return (
+              <View
+                key={order.id}
+                className="bg-white rounded-3xl p-4 mb-4 border border-slate-100 shadow-sm">
+                {/* Order Top Header */}
+                <View className="flex-row items-center justify-between pb-3 border-b border-slate-100">
+                  <View>
+                    <Text className="text-slate-900 font-extrabold text-sm">
+                      Order #{order.order_number}
+                    </Text>
+                    <Text className="text-slate-400 text-[11px] mt-0.5">{formattedDate}</Text>
+                  </View>
 
-        {authMode === 'register' && (
-          <View className="mb-3">
-            <Text className="text-slate-700 font-semibold text-xs mb-1.5">Full Name</Text>
-            <TextInput
-              placeholder="e.g. John Doe"
-              placeholderTextColor="#94A3B8"
-              value={name}
-              onChangeText={setName}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs"
-            />
-          </View>
-        )}
+                  {/* Status Badge */}
+                  <View
+                    className={`flex-row items-center px-2.5 py-1 rounded-full border ${badge.bg} ${badge.border}`}>
+                    <BadgeIcon size={12} color={order.status === 'delivered' ? '#0D9488' : '#4F46E5'} />
+                    <Text className={`text-[11px] font-black ml-1.5 ${badge.text}`}>
+                      {badge.label}
+                    </Text>
+                  </View>
+                </View>
 
-        <View className="mb-3">
-          <Text className="text-slate-700 font-semibold text-xs mb-1.5">Email Address</Text>
-          <TextInput
-            placeholder="you@domain.com"
-            placeholderTextColor="#94A3B8"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs"
-          />
+                {/* Items in this Order */}
+                <View className="py-3">
+                  {order.items.map((item) => (
+                    <View key={item.id} className="flex-row items-center mb-2 last:mb-0">
+                      {item.product_image ? (
+                        <Image
+                          source={{ uri: item.product_image }}
+                          className="w-12 h-12 rounded-xl bg-slate-100"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="w-12 h-12 rounded-xl bg-teal-50 items-center justify-center">
+                          <Package size={18} color="#0D9488" />
+                        </View>
+                      )}
+
+                      <View className="ml-3 flex-1">
+                        <Text numberOfLines={1} className="text-slate-800 font-bold text-xs">
+                          {item.product_title}
+                        </Text>
+                        <Text className="text-slate-500 text-[11px] mt-0.5">
+                          Qty: {item.quantity} • Rs. {item.price.toLocaleString()} each
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Order Footer & Tracking */}
+                <View className="pt-3 border-t border-slate-100 flex-row items-center justify-between">
+                  <View>
+                    <Text className="text-slate-400 text-[10px]">
+                      Destination: {order.shipping_address.city} • {order.payment_method}
+                    </Text>
+                    {order.tracking_number && (
+                      <Text className="text-teal-700 text-[10px] font-bold mt-0.5">
+                        Tracking: {order.tracking_number}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View className="items-end">
+                    <Text className="text-slate-400 text-[10px] uppercase font-bold">Total</Text>
+                    <Text className="text-slate-900 font-black text-sm">
+                      Rs. {order.total_amount.toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
         </View>
+      )}
 
-        <View className="mb-5">
-          <Text className="text-slate-700 font-semibold text-xs mb-1.5">Password</Text>
-          <TextInput
-            placeholder="••••••••"
-            placeholderTextColor="#94A3B8"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs"
-          />
-        </View>
-
-        <TouchableOpacity
-          onPress={handleAuthSubmit}
-          disabled={isSubmitting}
-          activeOpacity={0.8}
-          className="bg-teal-600 rounded-xl py-3.5 items-center flex-row justify-center shadow-sm">
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              {authMode === 'login' ? <LogIn size={16} color="#FFFFFF" /> : <UserPlus size={16} color="#FFFFFF" />}
-              <Text className="text-white font-bold text-xs ml-2">
-                {authMode === 'login' ? 'Sign In' : 'Create Account'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Quick Testing / Dev Access */}
-      <View className="bg-slate-100 rounded-2xl p-4 mb-10 border border-slate-200/80">
-        <Text className="text-slate-800 font-bold text-xs mb-1">Developer Quick Demo Login</Text>
-        <Text className="text-slate-500 text-[11px] mb-3">
-          Simulate a Laravel Sanctum session with Bearer token saved to SecureStore:
-        </Text>
-        <View className="flex-row space-x-2">
-          <TouchableOpacity
-            onPress={() => handleQuickDemoLogin('customer')}
-            className="flex-1 bg-white border border-slate-300 py-2.5 rounded-xl items-center mr-2 shadow-xs">
-            <Text className="text-teal-700 font-bold text-xs">Demo Customer</Text>
+      {/* Tab 2: Addresses & Settings */}
+      {activeTab === 'profile' && (
+        <View className="bg-white rounded-3xl p-3 border border-slate-100 shadow-sm mb-6">
+          <TouchableOpacity className="flex-row items-center justify-between p-3.5 border-b border-slate-50">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center">
+                <MapPin size={16} color="#0D9488" />
+              </View>
+              <View className="ml-3">
+                <Text className="text-slate-800 font-bold text-xs">Saved Pakistani Addresses</Text>
+                <Text className="text-slate-400 text-[11px]">Karachi, Lahore & Islamabad residences</Text>
+              </View>
+            </View>
+            <ChevronRight size={16} color="#94A3B8" />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleQuickDemoLogin('vendor')}
-            className="flex-1 bg-white border border-slate-300 py-2.5 rounded-xl items-center shadow-xs">
-            <Text className="text-amber-700 font-bold text-xs">Demo Vendor</Text>
+
+          <TouchableOpacity className="flex-row items-center justify-between p-3.5 border-b border-slate-50">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center">
+                <CreditCard size={16} color="#0D9488" />
+              </View>
+              <View className="ml-3">
+                <Text className="text-slate-800 font-bold text-xs">Payment & Wallets</Text>
+                <Text className="text-slate-400 text-[11px]">JazzCash, Easypaisa & Debit Cards</Text>
+              </View>
+            </View>
+            <ChevronRight size={16} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity className="flex-row items-center justify-between p-3.5 border-b border-slate-50">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center">
+                <HelpCircle size={16} color="#0D9488" />
+              </View>
+              <View className="ml-3">
+                <Text className="text-slate-800 font-bold text-xs">Help & Customer Support</Text>
+                <Text className="text-slate-400 text-[11px]">Call Center & WhatsApp 24/7</Text>
+              </View>
+            </View>
+            <ChevronRight size={16} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity className="flex-row items-center justify-between p-3.5">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-xl bg-teal-50 items-center justify-center">
+                <ShieldCheck size={16} color="#0D9488" />
+              </View>
+              <View className="ml-3">
+                <Text className="text-slate-800 font-bold text-xs">Security & Sanctum Token</Text>
+                <Text className="text-slate-400 text-[11px]">Encrypted SecureStore session</Text>
+              </View>
+            </View>
+            <ChevronRight size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
-      </View>
+      )}
+
+      {/* Sign Out Button */}
+      <TouchableOpacity
+        onPress={() => logout()}
+        activeOpacity={0.8}
+        className="bg-white border border-rose-200 rounded-2xl p-4 flex-row items-center justify-center shadow-sm mb-12">
+        <LogOut size={16} color="#E11D48" />
+        <Text className="text-rose-600 font-black text-xs ml-2">Sign Out of Bizzhuss</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }

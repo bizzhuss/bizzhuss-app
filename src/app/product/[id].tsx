@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Star,
@@ -16,8 +16,6 @@ import {
 } from 'lucide-react-native';
 import { useCartStore } from '@/store/useCartStore';
 import { MOCK_PRODUCTS } from '@/data/mockData';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ProductDetailsScreen() {
   const router = useRouter();

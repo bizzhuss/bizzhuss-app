@@ -57,7 +57,9 @@ export default function HomeScreen() {
                 <Text className="text-slate-900 text-[10px] font-extrabold uppercase">PK</Text>
               </View>
             </View>
-            <Text className="text-teal-100 text-xs mt-0.5 font-medium">Pakistan's Verified Multi-Vendor Hub</Text>
+            <Text className="text-teal-100 text-xs mt-0.5 font-medium">
+              {"Pakistan's Verified Multi-Vendor Hub"}
+            </Text>
           </View>
 
           {/* Header Action Badges */}

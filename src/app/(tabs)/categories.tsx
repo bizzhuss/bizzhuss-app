@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -18,18 +18,9 @@ import { MOCK_CATEGORIES, MOCK_PRODUCTS } from '@/data/mockData';
 export default function CategoriesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; category?: string }>();
-  const [search, setSearch] = useState('');
-  const [selectedCategorySlug, setSelectedCategorySlug] = useState('all');
+  const [search, setSearch] = useState(params.q || '');
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState(params.category || 'all');
   const addItem = useCartStore((state) => state.addItem);
-
-  useEffect(() => {
-    if (params.q) {
-      setSearch(params.q);
-    }
-    if (params.category) {
-      setSelectedCategorySlug(params.category);
-    }
-  }, [params.q, params.category]);
 
   const filteredProducts = MOCK_PRODUCTS.filter((product) => {
     const matchesSearch =
