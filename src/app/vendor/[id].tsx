@@ -32,28 +32,39 @@ export default function VendorStoreScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
-  const fetchVendorData = useCallback(async () => {
+  useEffect(() => {
     if (!id) return;
+    let isMounted = true;
+    getVendorById(id)
+      .then((result) => {
+        if (!isMounted) return;
+        setVendor(result.vendor);
+        setProducts(result.products || []);
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        console.log('Error loading vendor store:', e);
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  const onRefresh = useCallback(async () => {
+    if (!id) return;
+    setIsRefreshing(true);
     try {
       const result = await getVendorById(id);
       setVendor(result.vendor);
       setProducts(result.products || []);
     } catch (e) {
-      console.log('Error loading vendor store:', e);
+      console.log('Error refreshing vendor store:', e);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [id]);
-
-  useEffect(() => {
-    fetchVendorData();
-  }, [fetchVendorData]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    fetchVendorData();
-  }, [fetchVendorData]);
 
   if (isLoading) {
     return (

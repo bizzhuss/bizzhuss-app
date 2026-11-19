@@ -37,7 +37,33 @@ export default function CategoriesScreen() {
 
   const addItem = useCartStore((state) => state.addItem);
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      getCategories(),
+      getProducts({
+        category: selectedCategorySlug,
+        search: search.trim() || undefined,
+      }),
+    ])
+      .then(([cats, prodsRes]) => {
+        if (!isMounted) return;
+        setCategories(cats || []);
+        setProducts(prodsRes.data || []);
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        console.log('Error fetching catalog data:', e);
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCategorySlug, search]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
     try {
       const [cats, prodsRes] = await Promise.all([
         getCategories(),
@@ -49,21 +75,11 @@ export default function CategoriesScreen() {
       setCategories(cats || []);
       setProducts(prodsRes.data || []);
     } catch (e) {
-      console.log('Error fetching catalog data:', e);
+      console.log('Error refreshing catalog data:', e);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [selectedCategorySlug, search]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    fetchData();
-  }, [fetchData]);
 
   const handleProductPress = (product: Product) => {
     router.push({

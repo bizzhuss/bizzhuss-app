@@ -38,27 +38,37 @@ export default function ProductDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
 
-  const loadProduct = useCallback(async () => {
+  useEffect(() => {
     if (!id) return;
+    let isMounted = true;
+    getProductById(id)
+      .then((data) => {
+        if (!isMounted) return;
+        setProduct(data);
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        console.log('Error loading product details:', e);
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  const onRefresh = useCallback(async () => {
+    if (!id) return;
+    setIsRefreshing(true);
     try {
       const data = await getProductById(id);
       setProduct(data);
     } catch (e) {
-      console.log('Error loading product details:', e);
+      console.log('Error refreshing product details:', e);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [id]);
-
-  useEffect(() => {
-    loadProduct();
-  }, [loadProduct]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadProduct();
-  }, [loadProduct]);
 
   if (isLoading) {
     return (

@@ -48,7 +48,30 @@ export default function HomeScreen() {
 
   const addItem = useCartStore((state) => state.addItem);
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    let isMounted = true;
+    getHomeData()
+      .then((data) => {
+        if (!isMounted) return;
+        setBanners(data.banners || []);
+        setCategories(data.categories || []);
+        setFeaturedProducts(data.featuredProducts || []);
+        setTrendingProducts(data.trendingProducts || []);
+        setVendors(data.vendors || []);
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        console.log('Error loading home data:', e);
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
     try {
       const data = await getHomeData();
       setBanners(data.banners || []);
@@ -57,21 +80,11 @@ export default function HomeScreen() {
       setTrendingProducts(data.trendingProducts || []);
       setVendors(data.vendors || []);
     } catch (e) {
-      console.log('Error loading home data:', e);
+      console.log('Error refreshing home data:', e);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadData();
-  }, [loadData]);
 
   const handleProductPress = (product: Product) => {
     router.push({
