@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { User, AuthResponse, ApiResponse } from '@/types';
+import { User, AuthResponse, ApiResponse, Order } from '@/types';
 import { apiClient, getAuthToken, setAuthToken, removeAuthToken } from '@/api/client';
+import { MOCK_ORDERS } from '@/data/mockData';
 
 export interface LoginCredentials {
   email: string;
@@ -22,6 +23,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  orders: Order[];
 
   // Actions
   loadUser: () => Promise<void>;
@@ -31,6 +33,7 @@ interface AuthState {
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => Promise<void>;
   clearError: () => void;
+  placeOrder: (order: Order) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -39,6 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   isLoading: true,
   error: null,
+  orders: MOCK_ORDERS,
 
   loadUser: async () => {
     set({ isLoading: true, error: null });
@@ -148,6 +152,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  placeOrder: (order: Order) => {
+    set((state) => ({
+      orders: [order, ...state.orders],
+    }));
+  },
 }));
 
 export default useAuthStore;

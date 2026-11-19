@@ -35,8 +35,43 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#F8FAFC' },
+        }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="product/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: 'Product Details',
+            headerTintColor: '#0D9488',
+            headerTitleStyle: { color: '#0F172A', fontWeight: '700' },
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="checkout"
+          options={{
+            headerShown: true,
+            headerTitle: 'Express Checkout',
+            headerTintColor: '#0D9488',
+            headerTitleStyle: { color: '#0F172A', fontWeight: '700' },
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="login"
+          options={{
+            presentation: 'modal',
+            headerShown: true,
+            headerTitle: 'Account Access',
+            headerTintColor: '#0D9488',
+            headerTitleStyle: { color: '#0F172A', fontWeight: '700' },
+            headerShadowVisible: false,
+          }}
+        />
       </Stack>
     </>
   );
