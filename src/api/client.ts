@@ -1,35 +1,55 @@
 import { create as createAxios, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 export const AUTH_TOKEN_KEY = 'bizzhuss_auth_token';
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://bizzhuss.com/api/v1';
 
 /**
- * SecureStore helpers for Laravel Sanctum Bearer token
+ * Storage helpers for Laravel Sanctum Bearer token:
+ * Uses expo-secure-store on iOS/Android, and localStorage on Web.
  */
 export async function getAuthToken(): Promise<string | null> {
   try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(AUTH_TOKEN_KEY);
+      }
+      return null;
+    }
     return await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
   } catch (error) {
-    console.warn('Failed to retrieve auth token from SecureStore:', error);
+    console.warn('Failed to retrieve auth token:', error);
     return null;
   }
 }
 
 export async function setAuthToken(token: string): Promise<void> {
   try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+      }
+      return;
+    }
     await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
   } catch (error) {
-    console.error('Failed to save auth token to SecureStore:', error);
+    console.error('Failed to save auth token:', error);
     throw error;
   }
 }
 
 export async function removeAuthToken(): Promise<void> {
   try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
+      return;
+    }
     await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
   } catch (error) {
-    console.warn('Failed to delete auth token from SecureStore:', error);
+    console.warn('Failed to delete auth token:', error);
   }
 }
 
