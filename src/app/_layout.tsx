@@ -3,7 +3,16 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { StyleSheet } from 'react-native-css-interop';
 import { useAuthStore } from '@/store/useAuthStore';
+
+// Ensure dark mode flag is configured for NativeWind class-based mode
+if (typeof (StyleSheet as any).setFlag === 'function') {
+  (StyleSheet as any).setFlag('darkMode', 'class');
+}
+if (typeof document !== 'undefined') {
+  document.documentElement.style.setProperty('--css-interop-darkMode', 'class dark');
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
