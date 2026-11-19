@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Star,
@@ -13,22 +22,71 @@ import {
   ShoppingBag,
   ArrowRight,
   Share2,
+  PackageOpen,
 } from 'lucide-react-native';
 import { useCartStore } from '@/store/useCartStore';
-import { MOCK_PRODUCTS } from '@/data/mockData';
+import { getProductById } from '@/api/catalog';
+import { Product } from '@/types';
 
 export default function ProductDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
 
-  const product = MOCK_PRODUCTS.find((p) => p.id.toString() === id) || MOCK_PRODUCTS[0];
+  const loadProduct = useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await getProductById(id);
+      setProduct(data);
+    } catch (e) {
+      console.log('Error loading product details:', e);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [id]);
 
-  const images = (product.images || []).map((img) =>
-    typeof img === 'string' ? img : img.url
-  );
+  useEffect(() => {
+    loadProduct();
+  }, [loadProduct]);
+
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadProduct();
+  }, [loadProduct]);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color="#0D9488" />
+        <Text className="text-slate-500 text-xs mt-3 font-semibold">Loading Product Details...</Text>
+      </View>
+    );
+  }
+
+  if (!product) {
+    return (
+      <View className="flex-1 bg-slate-50 items-center justify-center p-6">
+        <View className="w-16 h-16 rounded-full bg-slate-200 items-center justify-center mb-3">
+          <PackageOpen size={30} color="#64748B" />
+        </View>
+        <Text className="text-slate-900 font-extrabold text-base mb-1">Product Not Found</Text>
+        <Text className="text-slate-500 text-xs text-center max-w-[240px] mb-4">
+          The requested product may no longer be available in our catalog.
+        </Text>
+        <TouchableOpacity onPress={() => router.back()} className="bg-teal-600 px-5 py-2.5 rounded-xl">
+          <Text className="text-white text-xs font-bold">Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const images = (product.images || []).map((img) => (typeof img === 'string' ? img : img.url));
 
   const currentPrice = product.sale_price ?? product.price;
   const discountPercent = product.sale_price
@@ -54,7 +112,12 @@ export default function ProductDetailsScreen() {
 
   return (
     <View className="flex-1 bg-white">
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#0D9488']} tintColor="#0D9488" />
+        }>
         {/* Product Image Gallery Slider */}
         <View className="w-full h-80 bg-slate-100 relative">
           <Image
@@ -97,7 +160,7 @@ export default function ProductDetailsScreen() {
         )}
 
         <View className="p-5 pb-24">
-          {/* Price & Rating Header */}
+          {/* Price & Stock Header */}
           <View className="flex-row items-baseline justify-between mb-1">
             <View className="flex-row items-baseline">
               <Text className="text-teal-700 font-black text-2xl tracking-tight">
@@ -157,7 +220,12 @@ export default function ProductDetailsScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={() => router.push({ pathname: '/(tabs)/categories', params: { q: product.vendor?.store_name } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/vendor/[id]',
+                    params: { id: (product.vendor_id || product.vendor?.id || 101).toString() },
+                  })
+                }
                 className="bg-white border border-teal-600 px-3 py-1.5 rounded-lg shadow-2xs">
                 <Text className="text-teal-700 text-xs font-bold">Visit Store</Text>
               </TouchableOpacity>
@@ -168,7 +236,7 @@ export default function ProductDetailsScreen() {
           <View className="flex-row items-center justify-between my-3 py-3 border-y border-slate-100">
             <View>
               <Text className="text-slate-900 font-bold text-sm">Select Quantity</Text>
-              <Text className="text-slate-400 text-xs">Maximum 10 per customer</Text>
+              <Text className="text-slate-400 text-xs">Maximum 10 per order</Text>
             </View>
 
             <View className="flex-row items-center bg-slate-100 rounded-xl p-1 border border-slate-200">
@@ -217,7 +285,7 @@ export default function ProductDetailsScreen() {
 
             {product.sku && (
               <View className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-row justify-between">
-                <Text className="text-slate-500 text-xs">SKU Reference</Text>
+                <Text className="text-slate-500 text-xs font-medium">SKU Reference</Text>
                 <Text className="text-slate-800 text-xs font-bold font-mono">{product.sku}</Text>
               </View>
             )}

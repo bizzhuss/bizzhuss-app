@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -25,14 +25,16 @@ import {
 } from 'lucide-react-native';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { PAKISTANI_CITIES, CityDeliveryInfo } from '@/data/mockData';
-import { Order, OrderItem } from '@/types';
+import { getShippingRates } from '@/api/catalog';
+import { createOrder } from '@/api/orders';
+import { CityDeliveryInfo, PAKISTANI_CITIES } from '@/data/mockData';
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCartStore();
   const { user, placeOrder } = useAuthStore();
 
+  const [cities, setCities] = useState<CityDeliveryInfo[]>(PAKISTANI_CITIES);
   const [fullName, setFullName] = useState(user?.name || 'Haseeb Khan');
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || '+92 300 1234567');
   const [streetAddress, setStreetAddress] = useState('House 42-B, Street 7, Block 4');
@@ -43,12 +45,27 @@ export default function CheckoutScreen() {
   const [isOrderSuccessModalVisible, setIsOrderSuccessModalVisible] = useState(false);
   const [placedOrderNumber, setPlacedOrderNumber] = useState('');
 
+  useEffect(() => {
+    async function loadRates() {
+      try {
+        const data = await getShippingRates();
+        if (data && data.length > 0) {
+          setCities(data);
+          setSelectedCity(data[0]);
+        }
+      } catch (e) {
+        console.log('Error fetching shipping rates:', e);
+      }
+    }
+    loadRates();
+  }, []);
+
   const sub = subtotal();
   const isFreeDelivery = sub >= 5000;
   const shippingFee = isFreeDelivery ? 0 : selectedCity.fee;
   const totalAmount = sub + shippingFee;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!fullName.trim() || !phoneNumber.trim() || !streetAddress.trim()) {
       Alert.alert('Required Information', 'Please fill in your name, contact phone, and delivery address.');
       return;
@@ -62,29 +79,7 @@ export default function CheckoutScreen() {
 
     setIsPlacingOrder(true);
 
-    setTimeout(() => {
-      const orderNum = `BZH-${Math.floor(10000 + Math.random() * 90000)}`;
-      setPlacedOrderNumber(orderNum);
-
-      const orderItems: OrderItem[] = items.map((item, index) => {
-        const unitPrice = item.product.sale_price ?? item.product.price;
-        const imgUrl = typeof item.product.images[0] === 'string'
-          ? item.product.images[0]
-          : item.product.images[0]?.url;
-
-        return {
-          id: Date.now() + index,
-          order_id: Date.now(),
-          product_id: item.product.id,
-          product_title: item.product.title,
-          product_image: imgUrl,
-          price: unitPrice,
-          quantity: item.quantity,
-          subtotal: unitPrice * item.quantity,
-          vendor_id: item.product.vendor_id,
-        };
-      });
-
+    try {
       const paymentMethodLabel =
         paymentMethod === 'cod'
           ? 'Cash on Delivery (COD)'
@@ -92,19 +87,14 @@ export default function CheckoutScreen() {
           ? 'JazzCash / Easypaisa'
           : 'Debit / Credit Card';
 
-      const newOrder: Order = {
-        id: Date.now(),
-        order_number: orderNum,
-        user_id: user?.id || 1,
-        status: 'pending',
-        payment_status: paymentMethod === 'cod' ? 'pending' : 'paid',
-        payment_method: paymentMethodLabel,
-        subtotal: sub,
-        tax_amount: 0,
-        shipping_fee: shippingFee,
-        discount_amount: 0,
-        total_amount: totalAmount,
-        items: orderItems,
+      // Submit to real API endpoint /orders
+      const order = await createOrder({
+        items: items.map((i) => ({
+          product_id: i.product.id,
+          quantity: i.quantity,
+          price: i.product.sale_price ?? i.product.price,
+          selected_attributes: i.selectedAttributes,
+        })),
         shipping_address: {
           name: fullName,
           phone: phoneNumber,
@@ -113,15 +103,19 @@ export default function CheckoutScreen() {
           postal_code: '75000',
           country: 'Pakistan',
         },
-        tracking_number: `TCS-${Math.floor(10000000 + Math.random() * 90000000)}`,
-        created_at: new Date().toISOString(),
-      };
+        payment_method: paymentMethodLabel,
+        shipping_fee: shippingFee,
+      });
 
-      placeOrder(newOrder);
+      setPlacedOrderNumber(order.order_number);
+      placeOrder(order);
       clearCart();
-      setIsPlacingOrder(false);
       setIsOrderSuccessModalVisible(true);
-    }, 1000);
+    } catch (e: any) {
+      Alert.alert('Order Placement Failed', e.message || 'Unable to place order. Please try again.');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const handleFinishAndGoToOrders = () => {
@@ -355,7 +349,7 @@ export default function CheckoutScreen() {
             </View>
 
             <ScrollView className="mt-3">
-              {PAKISTANI_CITIES.map((city) => {
+              {cities.map((city) => {
                 const isSelected = selectedCity.name === city.name;
                 return (
                   <TouchableOpacity
@@ -401,17 +395,17 @@ export default function CheckoutScreen() {
             <Text className="text-teal-700 font-bold text-xs mt-1">Order #{placedOrderNumber}</Text>
 
             <Text className="text-slate-500 text-xs text-center mt-2.5 leading-relaxed">
-              Thank you for shopping on Bizzhuss! Your order has been placed successfully and will be delivered to{' '}
+              Thank you for shopping on Bizzhuss! Your order has been registered on our Laravel API and will be dispatched to{' '}
               <Text className="font-bold text-slate-700">{selectedCity.name}</Text> within {selectedCity.estimatedDays}.
             </Text>
 
             <View className="w-full bg-slate-50 rounded-xl p-3 my-4 border border-slate-100">
               <View className="flex-row justify-between mb-1">
-                <Text className="text-slate-500 text-[11px]">Total Paid/Due:</Text>
+                <Text className="text-slate-500 text-[11px]">Total Payable:</Text>
                 <Text className="text-slate-900 font-bold text-[11px]">Rs. {totalAmount.toLocaleString()}</Text>
               </View>
               <View className="flex-row justify-between">
-                <Text className="text-slate-500 text-[11px]">Payment:</Text>
+                <Text className="text-slate-500 text-[11px]">Payment Mode:</Text>
                 <Text className="text-teal-700 font-bold text-[11px]">
                   {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Paid'}
                 </Text>

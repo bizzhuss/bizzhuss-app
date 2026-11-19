@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Package,
@@ -16,6 +16,7 @@ import {
   Clock,
   Send,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/store/useAuthStore';
 import { OrderStatus } from '@/types';
@@ -67,13 +68,37 @@ function getOrderStatusBadge(status: OrderStatus) {
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, orders, logout } = useAuthStore();
+  const { user, isAuthenticated, isLoading, orders, logout, fetchOrders } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchOrders();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchOrders]);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-slate-50 items-center justify-center">
+        <ActivityIndicator size="large" color="#0D9488" />
+        <Text className="text-slate-500 text-xs mt-3 font-semibold">Synchronizing with Bizzhuss...</Text>
+      </View>
+    );
+  }
 
   // Guest State View
   if (!isAuthenticated || !user) {
     return (
-      <ScrollView className="flex-1 bg-slate-50 px-5 pt-6" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 bg-slate-50 px-5 pt-6"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#0D9488']} tintColor="#0D9488" />
+        }>
         {/* Guest Welcome Banner */}
         <View className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm items-center text-center mb-5">
           <View className="w-16 h-16 rounded-full bg-teal-50 items-center justify-center mb-3 border border-teal-100">
@@ -137,7 +162,12 @@ export default function AccountScreen() {
 
   // Logged-in State View
   return (
-    <ScrollView className="flex-1 bg-slate-50 px-4 pt-4 pb-12" showsVerticalScrollIndicator={false}>
+    <ScrollView
+      className="flex-1 bg-slate-50 px-4 pt-4 pb-12"
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#0D9488']} tintColor="#0D9488" />
+      }>
       {/* User Profile Card */}
       <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-4">
         <View className="flex-row items-center">
@@ -166,20 +196,23 @@ export default function AccountScreen() {
 
       {/* Vendor Store Portal Banner (if vendor role) */}
       {user.role === 'vendor' && (
-        <View className="bg-amber-50 rounded-2xl p-4 mb-4 border border-amber-200">
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/vendor/[id]', params: { id: (user.id || 101).toString() } })}
+          activeOpacity={0.8}
+          className="bg-amber-50 rounded-2xl p-4 mb-4 border border-amber-200">
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 pr-2">
               <Store size={22} color="#D97706" />
               <View className="ml-3 flex-1">
                 <Text className="text-amber-900 font-black text-sm">Vendor Store Portal</Text>
                 <Text className="text-amber-700 text-xs">
-                  Manage inventory, Pakistani logistics & payout balance
+                  Manage inventory, Pakistani logistics & view storefront
                 </Text>
               </View>
             </View>
             <ChevronRight size={18} color="#D97706" />
           </View>
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* Tabs Switcher: Orders vs Account Settings */}
@@ -216,6 +249,16 @@ export default function AccountScreen() {
       {/* Tab 1: Orders List */}
       {activeTab === 'orders' && (
         <View className="mb-6">
+          <View className="flex-row items-center justify-between px-1 mb-2.5">
+            <Text className="text-slate-600 text-xs font-semibold">
+              Live orders synced via Sanctum REST API
+            </Text>
+            <TouchableOpacity onPress={onRefresh} className="flex-row items-center">
+              <RefreshCw size={12} color="#0D9488" />
+              <Text className="text-teal-700 text-[11px] font-bold ml-1">Refresh</Text>
+            </TouchableOpacity>
+          </View>
+
           {orders.map((order) => {
             const badge = getOrderStatusBadge(order.status);
             const BadgeIcon = badge.icon;

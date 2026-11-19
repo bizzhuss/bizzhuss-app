@@ -52,6 +52,16 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="vendor/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: 'Vendor Store',
+            headerTintColor: '#0D9488',
+            headerTitleStyle: { color: '#0F172A', fontWeight: '700' },
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
           name="checkout"
           options={{
             headerShown: true,

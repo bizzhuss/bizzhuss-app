@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Search,
@@ -11,30 +20,50 @@ import {
   CheckCircle2,
   PackageOpen,
 } from 'lucide-react-native';
-import { Product } from '@/types';
+import { Product, Category } from '@/types';
 import { useCartStore } from '@/store/useCartStore';
-import { MOCK_CATEGORIES, MOCK_PRODUCTS } from '@/data/mockData';
+import { getCategories, getProducts } from '@/api/catalog';
 
 export default function CategoriesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; category?: string }>();
   const [search, setSearch] = useState(params.q || '');
   const [selectedCategorySlug, setSelectedCategorySlug] = useState(params.category || 'all');
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const addItem = useCartStore((state) => state.addItem);
 
-  const filteredProducts = MOCK_PRODUCTS.filter((product) => {
-    const matchesSearch =
-      search.trim() === '' ||
-      product.title.toLowerCase().includes(search.toLowerCase()) ||
-      product.description.toLowerCase().includes(search.toLowerCase()) ||
-      product.vendor?.store_name.toLowerCase().includes(search.toLowerCase());
+  const fetchData = useCallback(async () => {
+    try {
+      const [cats, prodsRes] = await Promise.all([
+        getCategories(),
+        getProducts({
+          category: selectedCategorySlug,
+          search: search.trim() || undefined,
+        }),
+      ]);
+      setCategories(cats || []);
+      setProducts(prodsRes.data || []);
+    } catch (e) {
+      console.log('Error fetching catalog data:', e);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [selectedCategorySlug, search]);
 
-    const matchesCategory =
-      selectedCategorySlug === 'all' ||
-      product.category?.slug === selectedCategorySlug;
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    return matchesSearch && matchesCategory;
-  });
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    fetchData();
+  }, [fetchData]);
 
   const handleProductPress = (product: Product) => {
     router.push({
@@ -79,11 +108,11 @@ export default function CategoriesScreen() {
               className={`text-xs font-bold ${
                 selectedCategorySlug === 'all' ? 'text-white' : 'text-slate-600'
               }`}>
-              All Items ({MOCK_PRODUCTS.length})
+              All Items
             </Text>
           </TouchableOpacity>
 
-          {MOCK_CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const isActive = selectedCategorySlug === cat.slug;
             return (
               <TouchableOpacity
@@ -109,7 +138,7 @@ export default function CategoriesScreen() {
       {/* Filter Info Bar */}
       <View className="flex-row items-center justify-between px-4 py-2 bg-slate-100/70 border-b border-slate-200/50">
         <Text className="text-slate-600 text-xs font-semibold">
-          Showing {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
+          Showing {products.length} {products.length === 1 ? 'item' : 'items'}
         </Text>
         <View className="flex-row items-center">
           <Filter size={13} color="#0D9488" />
@@ -117,9 +146,19 @@ export default function CategoriesScreen() {
         </View>
       </View>
 
-      {/* Products Grid or Empty State */}
-      <ScrollView className="flex-1 px-4 pt-3" showsVerticalScrollIndicator={false}>
-        {filteredProducts.length === 0 ? (
+      {/* Products Grid or Empty / Loading State */}
+      <ScrollView
+        className="flex-1 px-4 pt-3"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#0D9488']} tintColor="#0D9488" />
+        }>
+        {isLoading ? (
+          <View className="py-20 items-center justify-center">
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text className="text-slate-500 text-xs mt-3 font-semibold">Loading Catalog Products...</Text>
+          </View>
+        ) : products.length === 0 ? (
           <View className="items-center justify-center py-20">
             <View className="w-16 h-16 rounded-full bg-slate-200 items-center justify-center mb-3">
               <PackageOpen size={30} color="#64748B" />
@@ -139,7 +178,7 @@ export default function CategoriesScreen() {
           </View>
         ) : (
           <View className="flex-row flex-wrap justify-between pb-16">
-            {filteredProducts.map((product) => {
+            {products.map((product) => {
               const imageUrl = typeof product.images[0] === 'string'
                 ? product.images[0]
                 : product.images[0]?.url;

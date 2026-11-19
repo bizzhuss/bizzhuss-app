@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { User, AuthResponse, ApiResponse, Order } from '@/types';
-import { apiClient, getAuthToken, setAuthToken, removeAuthToken } from '@/api/client';
+import { User, Order } from '@/types';
+import { getAuthToken, setAuthToken, removeAuthToken } from '@/api/client';
+import { login as apiLogin, register as apiRegister, getProfile as apiGetProfile, logout as apiLogout } from '@/api/auth';
+import { getMyOrders } from '@/api/orders';
 import { MOCK_ORDERS } from '@/data/mockData';
 
 export interface LoginCredentials {
@@ -30,6 +32,7 @@ interface AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  fetchOrders: () => Promise<void>;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => Promise<void>;
   clearError: () => void;
@@ -53,24 +56,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      // Fetch user profile from Laravel Sanctum /user endpoint
-      const response = await apiClient.get<ApiResponse<User> | User>('/user');
-      const userData = (response.data as ApiResponse<User>).data ?? (response.data as User);
-
+      // Fetch user profile from Laravel Sanctum API
+      const user = await apiGetProfile();
       set({
-        user: userData,
+        user,
         token,
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (err: any) {
+
+      // Load user's recent orders
+      await get().fetchOrders();
+    } catch {
       await removeAuthToken();
       set({
         user: null,
         token: null,
         isAuthenticated: false,
         isLoading: false,
-        error: err.response?.data?.message || null,
       });
     }
   },
@@ -78,22 +81,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (credentials: LoginCredentials) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/login', {
-        ...credentials,
-        device_name: credentials.device_name || 'mobile_app',
-      });
-
-      const { user, token } = response.data;
-      await setAuthToken(token);
-
+      const { user, token } = await apiLogin(credentials);
       set({
         user,
         token,
         isAuthenticated: true,
         isLoading: false,
       });
+      await get().fetchOrders();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Login failed. Please check your credentials.';
+      const message = err.message || 'Login failed. Please check your credentials.';
       set({ error: message, isLoading: false });
       throw new Error(message);
     }
@@ -102,10 +99,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (data: RegisterData) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/register', data);
-      const { user, token } = response.data;
-      await setAuthToken(token);
-
+      const { user, token } = await apiRegister(data);
       set({
         user,
         token,
@@ -113,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
       });
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Registration failed. Please try again.';
+      const message = err.message || 'Registration failed. Please try again.';
       set({ error: message, isLoading: false });
       throw new Error(message);
     }
@@ -122,9 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     set({ isLoading: true });
     try {
-      if (get().token) {
-        await apiClient.post('/auth/logout').catch(() => {});
-      }
+      await apiLogout();
     } finally {
       await removeAuthToken();
       set({
@@ -134,6 +126,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: null,
       });
+    }
+  },
+
+  fetchOrders: async () => {
+    try {
+      const orders = await getMyOrders();
+      set({ orders });
+    } catch (err) {
+      console.log('[Store:Auth] Error fetching orders:', err);
     }
   },
 

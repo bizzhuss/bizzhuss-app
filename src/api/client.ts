@@ -2,7 +2,7 @@ import { create as createAxios, AxiosError, InternalAxiosRequestConfig } from 'a
 import * as SecureStore from 'expo-secure-store';
 
 export const AUTH_TOKEN_KEY = 'bizzhuss_auth_token';
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.bizzhuss.com/api';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://bizzhuss.com/api/v1';
 
 /**
  * SecureStore helpers for Laravel Sanctum Bearer token
@@ -34,7 +34,7 @@ export async function removeAuthToken(): Promise<void> {
 }
 
 /**
- * Pre-configured Axios instance for Laravel Sanctum REST API
+ * Pre-configured Axios instance for Laravel Sanctum REST API v1
  */
 export const apiClient = createAxios({
   baseURL: API_BASE_URL,
@@ -45,26 +45,30 @@ export const apiClient = createAxios({
   },
 });
 
-// Request Interceptor: Attach Sanctum Bearer token from SecureStore
+// Request Interceptor: Attach Sanctum Bearer token from SecureStore automatically
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    config.headers.set('Accept', 'application/json');
+
     const token = await getAuthToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      config.headers.set('Authorization', `Bearer ${token}`);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle auth expiration & global errors
+// Response Interceptor: Handle auth expiration (401) & global errors
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Sanctum token is invalid or expired
+      // Sanctum token expired or revoked
       await removeAuthToken();
     }
     return Promise.reject(error);
   }
 );
+
+export default apiClient;
